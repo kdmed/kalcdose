@@ -61,6 +61,12 @@
     <p id="offline-status" style="display:none; color:#00b8a0; margin-top:4px;">✓ Mode hors-ligne actif</p>
   </footer>
 
+  <script type="module">
+    import { checkActivation } from "./auth.js";
+    checkActivation().then(ok => {
+      if (!ok) window.location.href = "login.html";
+    });
+  </script>
   <script src="meds.js"></script>
   <script src="app.js"></script>
   <script>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>KalcDose — Activation</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#0d1f3c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="KalcDose"/>
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1f3c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #152848;
+      border-radius: 16px;
+      padding: 36px 28px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .logo { font-size: 42px; font-weight: 500; color: white; margin-bottom: 6px; }
+    .logo span { color: #00b8a0; font-size: 50px; }
+    .subtitle { font-size: 12px; color: rgba(255,255,255,0.45); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 32px; }
+    .label { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 10px; text-align: left; }
+    .code-input {
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 22px;
+      font-weight: 500;
+      color: white;
+      text-align: center;
+      letter-spacing: 4px;
+      outline: none;
+      transition: border 0.2s;
+      margin-bottom: 16px;
+    }
+    .code-input:focus { border-color: #00b8a0; }
+    .code-input::placeholder { color: rgba(255,255,255,0.25); letter-spacing: 2px; font-size: 16px; }
+    .btn {
+      width: 100%;
+      background: #00b8a0;
+      color: #04342C;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { opacity: 0.9; }
+    .message {
+      margin-top: 16px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+    }
+    .message.error { background: rgba(226,75,74,0.15); color: #ff7b7a; border: 1px solid rgba(226,75,74,0.3); }
+    .message.success { background: rgba(0,184,160,0.15); color: #00b8a0; border: 1px solid rgba(0,184,160,0.3); }
+    .spinner { display: none; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer-note { margin-top: 24px; font-size: 11px; color: rgba(255,255,255,0.3); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><span>K</span>alcDose</div>
+    <div class="subtitle">Calculateur de doses médicales</div>
+
+    <div class="label">Entrez votre code d'activation</div>
+    <input type="number" class="code-input" id="code-input" placeholder="000000" maxlength="6" />
+    <button class="btn" id="btn-activate" onclick="activate()">Activer</button>
+    <div class="spinner" id="spinner"></div>
+    <div class="message" id="message"></div>
+    <div class="footer-note">Usage professionnel uniquement</div>
+  </div>
+
+  <script type="module">
+    import { checkActivation, activateCode } from './auth.js';
+
+    // Vérifier si déjà activé
+    checkActivation().then(ok => {
+      if (ok) window.location.href = 'index.html';
+    });
+
+    window.activate = async function() {
+      const code = document.getElementById("code-input").value.trim();
+      if (code.length < 4) {
+        showMessage("Entrez un code valide.", "error");
+        return;
+      }
+      setLoading(true);
+      const result = await activateCode(code);
+      setLoading(false);
+      if (result.success) {
+        showMessage("✓ " + result.message, "success");
+        setTimeout(() => window.location.href = 'index.html', 1000);
+      } else {
+        showMessage("✗ " + result.message, "error");
+      }
+    };
+
+    function setLoading(loading) {
+      document.getElementById("btn-activate").style.display = loading ? "none" : "block";
+      document.getElementById("spinner").style.display = loading ? "block" : "none";
+    }
+
+    function showMessage(msg, type) {
+      const el = document.getElementById("message");
+      el.textContent = msg;
+      el.className = "message " + type;
+      el.style.display = "block";
+    }
+
+    // Activer avec Entrée
+    document.getElementById("code-input").addEventListener("keydown", e => {
+      if (e.key === "Enter") window.activate();
+    });
+  </script>
+</body>
+</html>

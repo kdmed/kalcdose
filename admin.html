@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KalcDose — Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #0d1f3c; color: white; padding: 24px; min-height: 100vh; }
+    .header { text-align: center; margin-bottom: 32px; }
+    .logo { font-size: 28px; font-weight: 500; }
+    .logo span { color: #00b8a0; }
+    .admin-badge { font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+    .card { background: #152848; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 13px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    input { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 12px; font-size: 14px; color: white; outline: none; flex: 1; }
+    input:focus { border-color: #00b8a0; }
+    .btn { background: #00b8a0; color: #04342C; border: none; border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-red { background: rgba(226,75,74,0.2); color: #ff7b7a; border: 1px solid rgba(226,75,74,0.3); }
+    .codes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    .code-row { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .code-num { font-size: 20px; font-weight: 500; letter-spacing: 3px; color: #00b8a0; }
+    .code-status { font-size: 11px; padding: 3px 10px; border-radius: 50px; }
+    .code-status.free { background: rgba(0,184,160,0.15); color: #00b8a0; }
+    .code-status.used { background: rgba(255,200,0,0.15); color: #ffc800; }
+    .code-status.disabled { background: rgba(255,100,100,0.15); color: #ff7b7a; }
+    .code-info { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .message { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 10px; display: none; }
+    .message.success { background: rgba(0,184,160,0.15); color: #00b8a0; }
+    .message.error { background: rgba(226,75,74,0.15); color: #ff7b7a; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat { background: #152848; border-radius: 10px; padding: 14px; text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 500; color: #00b8a0; }
+    .stat-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .password-screen { max-width: 320px; margin: 80px auto; text-align: center; }
+    .password-screen input { text-align: center; letter-spacing: 4px; font-size: 20px; margin-bottom: 12px; width: 100%; }
+  </style>
+</head>
+<body>
+
+<div id="password-screen" class="password-screen">
+  <div class="logo" style="font-size:32px; margin-bottom:20px"><span>K</span>alcDose</div>
+  <div style="color:rgba(255,255,255,0.5); margin-bottom:16px; font-size:13px">Accès administrateur</div>
+  <input type="password" id="admin-pass" placeholder="Mot de passe" />
+  <button class="btn" style="width:100%" onclick="checkPassword()">Entrer</button>
+  <div class="message" id="pass-msg"></div>
+</div>
+
+<div id="admin-panel" style="display:none; max-width:500px; margin:0 auto;">
+  <div class="header">
+    <div class="logo"><span>K</span>alcDose</div>
+    <div class="admin-badge">Panel Administrateur</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total codes</div></div>
+    <div class="stat"><div class="stat-num" id="stat-free">0</div><div class="stat-label">Disponibles</div></div>
+    <div class="stat"><div class="stat-num" id="stat-used">0</div><div class="stat-label">Utilisés</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Générer un nouveau code</div>
+    <div class="input-row">
+      <input type="number" id="new-code" placeholder="Ex: 847291" maxlength="6"/>
+      <button class="btn" onclick="generateRandom()">Aléatoire</button>
+      <button class="btn" onclick="addCode()">Ajouter</button>
+    </div>
+    <div class="message" id="add-msg"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Codes actifs</div>
+    <div class="codes-list" id="codes-list">
+      <div style="color:rgba(255,255,255,0.3); text-align:center; padding:20px; font-size:13px">Chargement...</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, get, set, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBLG6fbL4gqCFbrzXM65QPF19ZdlyCGwAM",
+    authDomain: "kalcdose.firebaseapp.com",
+    databaseURL: "https://kalcdose-default-rtdb.firebaseio.com",
+    projectId: "kalcdose",
+    storageBucket: "kalcdose.firebasestorage.app",
+    messagingSenderId: "43097919196",
+    appId: "1:43097919196:web:de567ce941ece9b5786e19"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const ADMIN_PASSWORD = "kalcdose2024";
+
+  window.checkPassword = function() {
+    const pass = document.getElementById("admin-pass").value;
+    if (pass === ADMIN_PASSWORD) {
+      document.getElementById("password-screen").style.display = "none";
+      document.getElementById("admin-panel").style.display = "block";
+      loadCodes();
+    } else {
+      const msg = document.getElementById("pass-msg");
+      msg.textContent = "Mot de passe incorrect";
+      msg.className = "message error";
+      msg.style.display = "block";
+    }
+  };
+
+  window.generateRandom = function() {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    document.getElementById("new-code").value = code;
+  };
+
+  window.addCode = async function() {
+    const code = document.getElementById("new-code").value.trim();
+    const msg = document.getElementById("add-msg");
+    if (code.length < 4) {
+      msg.textContent = "Code trop court (minimum 4 chiffres)";
+      msg.className = "message error"; msg.style.display = "block"; return;
+    }
+    await set(ref(db, `codes/${code}`), {
+      active: true, activated: false, deviceId: null,
+      activatedAt: null, createdAt: new Date().toISOString()
+    });
+    msg.textContent = `✓ Code ${code} ajouté !`;
+    msg.className = "message success"; msg.style.display = "block";
+    document.getElementById("new-code").value = "";
+    setTimeout(() => { msg.style.display = "none"; }, 3000);
+    loadCodes();
+  };
+
+  window.disableCode = async function(code) {
+    await update(ref(db, `codes/${code}`), { active: false });
+    loadCodes();
+  };
+
+  window.deleteCode = async function(code) {
+    await remove(ref(db, `codes/${code}`));
+    loadCodes();
+  };
+
+  window.resetCode = async function(code) {
+    await update(ref(db, `codes/${code}`), { activated: false, deviceId: null, activatedAt: null });
+    loadCodes();
+  };
+
+  async function loadCodes() {
+    const snap = await get(ref(db, "codes"));
+    const list = document.getElementById("codes-list");
+    if (!snap.exists()) {
+      list.innerHTML = '<div style="color:rgba(255,255,255,0.3); text-align:center; padding:20px; font-size:13px">Aucun code — créez-en un !</div>';
+      return;
+    }
+    const codes = snap.val();
+    let total = 0, free = 0, used = 0;
+    let html = "";
+    Object.entries(codes).forEach(([code, data]) => {
+      total++;
+      const status = !data.active ? "disabled" : data.activated ? "used" : "free";
+      if (status === "free") free++;
+      if (status === "used") used++;
+      const statusLabel = status === "free" ? "Disponible" : status === "used" ? "Utilisé" : "Désactivé";
+      const activatedDate = data.activatedAt ? new Date(data.activatedAt).toLocaleDateString("fr-FR") : "";
+      html += `
+        <div class="code-row">
+          <div>
+            <div class="code-num">${code}</div>
+            <div class="code-info">${data.activated ? `Activé le ${activatedDate}` : "Non activé"}</div>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center">
+            <span class="code-status ${status}">${statusLabel}</span>
+            ${data.activated ? `<button class="btn btn-red" style="padding:4px 8px; font-size:10px" onclick="resetCode('${code}')">Reset</button>` : ""}
+            <button class="btn btn-red" style="padding:4px 8px; font-size:10px" onclick="deleteCode('${code}')">✕</button>
+          </div>
+        </div>`;
+    });
+    list.innerHTML = html;
+    document.getElementById("stat-total").textContent = total;
+    document.getElementById("stat-free").textContent = free;
+    document.getElementById("stat-used").textContent = used;
+  }
+
+  document.getElementById("admin-pass").addEventListener("keydown", e => {
+    if (e.key === "Enter") window.checkPassword();
+  });
+</script>
+</body>
+</html>
