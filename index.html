@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>KalcDose</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0d1f3c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="KalcDose" />
+
+  <!-- Icônes Apple -->
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <div class="logo-block">
+      <span class="logo-k">K</span><span class="logo-rest">alcDose</span>
+    </div>
+    <p class="tagline">Calculateur de doses médicales — Usage professionnel</p>
+  </header>
+
+  <!-- Bannière d'installation -->
+  <div id="install-banner" style="display:none;">
+    <span>📲 Installer KalcDose sur votre appareil</span>
+    <div class="install-btns">
+      <button id="install-btn">Installer</button>
+      <button id="install-dismiss">✕</button>
+    </div>
+  </div>
+
+  <main>
+    <div class="search-bar-wrap">
+      <input type="text" id="search" placeholder="🔍 Rechercher un médicament..." oninput="filterMeds()" />
+    </div>
+
+    <div class="categories" id="categories"></div>
+
+    <section class="med-grid" id="med-grid"></section>
+
+    <!-- Modal -->
+    <div class="modal-backdrop" id="modal-backdrop" onclick="closeModal()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <div id="modal-content"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>⚠️ KalcDose est un outil d'aide à la décision.</p>
+    <p id="offline-status" style="display:none; color:#00b8a0; margin-top:4px;">✓ Mode hors-ligne actif</p>
+  </footer>
+
+  <script src="meds.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // ── Service Worker ──────────────────────────────────────
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").then(reg => {
+        console.log("KalcDose SW enregistré:", reg.scope);
+      }).catch(err => console.warn("SW error:", err));
+    }
+
+    // ── Détection hors-ligne ────────────────────────────────
+    function updateOnlineStatus() {
+      document.getElementById("offline-status").style.display =
+        navigator.onLine ? "none" : "block";
+    }
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    updateOnlineStatus();
+
+    // ── Bannière d'installation PWA ─────────────────────────
+    let deferredPrompt = null;
+    const banner = document.getElementById("install-banner");
+    const installBtn = document.getElementById("install-btn");
+    const dismissBtn = document.getElementById("install-dismiss");
+
+    window.addEventListener("beforeinstallprompt", e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      banner.style.display = "flex";
+    });
+
+    installBtn.addEventListener("click", async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") banner.style.display = "none";
+      deferredPrompt = null;
+    });
+
+    dismissBtn.addEventListener("click", () => {
+      banner.style.display = "none";
+    });
+
+    window.addEventListener("appinstalled", () => {
+      banner.style.display = "none";
+      console.log("KalcDose installée !");
+    });
+
+    // ── Catégorie depuis URL (shortcuts PWA) ────────────────
+    const urlParams = new URLSearchParams(window.location.search);
+    const catParam = urlParams.get("cat");
+    if (catParam) {
+      document.addEventListener("DOMContentLoaded", () => {
+        activeCategory = catParam;
+        renderCategories();
+        renderGrid();
+      });
+    }
+  </script>
+</body>
+</html>
